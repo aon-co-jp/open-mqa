@@ -26,16 +26,33 @@ See [CLAUDE.md](CLAUDE.md) for full sourcing and details.
 
 ## Status
 
-**Concept/scope-decision stage only, no code yet** (bootstrapped
-2026-08-08).
+**First real code implemented on 2026-08-08** (a Rust FLAC + DoP crate).
 
-- Target codecs: FLAC + DSD (software DoP decoding) as the foundation.
-- Target quality: DSD256 as of August 2026, with sample-rate/bit-depth
-  kept configurable (not hardcoded) to accommodate DSD512 adoption
-  expected from 2027 onward.
-- "Authentication" equivalent: exploring hash/signature-based proof of
-  the mastering chain as an open alternative to MQA's proprietary
-  authentication concept.
+- **FLAC encode/decode** (`src/flac.rs`): a thin wrapper delegating to
+  existing, well-maintained crates — `claxon` for decoding, `flacenc`
+  for encoding. No codec math is hand-rolled. Verified with real
+  round-trip tests (mono 16-bit and stereo 24-bit synthetic sine waves,
+  encode then decode, sample-for-sample equality) — see build/test
+  output below.
+- **DoP (DSD over PCM) packing** (`src/dop.rs`): packs/unpacks DSD byte
+  streams into 24-bit PCM containers with 0x05/0xFA marker bytes, with
+  real unit tests asserting against known byte patterns (round-trip,
+  corrupted-marker detection, rejection of odd-length input). Sample
+  rate and bit depth are configurable via `DsdFormat`/`DopConfig`, not
+  hardcoded.
+- **Toshiba SBM (combinatorial optimization) for bit allocation**:
+  declined for now — no speculative wiring. See rationale and next
+  steps below and in `CLAUDE.md`.
+
+### Build & test
+
+```
+cargo build
+cargo test
+```
+
+As of 2026-08-08, `cargo test` passes all 11 tests (2 FLAC round-trip,
+7 DoP packing, 2 input-validation).
 - Software fallback design (inspired by DirectX's WARP software
   rasterizer): when native DSD-capable hardware isn't available, fall
   back to a software DSD→PCM downconversion path through the same API

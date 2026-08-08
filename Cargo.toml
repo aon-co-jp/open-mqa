@@ -1,0 +1,13 @@
+[package]
+name = "open-mqa"
+version = "0.1.0"
+edition = "2021"
+description = "open-mqa: MQA非互換・特許リスクなしの独自ハイレゾ配信パイプライン(FLAC + DSD-over-PCM)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+claxon = "0.4.3"
+flacenc = "0.4"
+thiserror = "1.0"
+
+[dev-dependencies]
