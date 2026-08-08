@@ -1,5 +1,10 @@
 # PORTING.md — open-mqa お引越しファイル
 
+> **English note**: No code exists yet as of 2026-08-08 (concept/scope
+> stage only) — this file will be filled in once the first
+> implementation lands. See [README-English.md](README-English.md) for
+> the project's scope in English.
+
 このファイル1枚で、他プロジェクトへ`open-mqa`を導入・移設できることを
 目指す(2026-08-08新設時点ではコード自体が無いため、現状は方針の記録のみ)。
 

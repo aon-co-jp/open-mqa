@@ -1,5 +1,17 @@
 # 設計思想＆開発方針＆開発環境ルール(open-mqa)
 
+> **English summary**: `open-mqa` is not an MQA clone — MQA's actual
+> codec ("origami" folding) is patent-protected, so this project
+> targets the same goal (bandwidth-efficient hi-res audio) via open
+> formats (FLAC, DSD256/512) instead. Concept/scope-decision stage
+> only as of 2026-08-08, no code yet. See
+> [README-English.md](README-English.md) for the full English summary,
+> including the honest finding that DeepSeek's rumored
+> "10,000-GPUs-into-one" folding technique could not be verified (same
+> conclusion reached independently in this ecosystem back on
+> 2026-07-23) — real DeepSeek techniques (MLA, DeepSeekMoE, FP8,
+> compressed attention, Engram) are recorded instead.
+
 作業ドライブは`F:\runo`。この節は[`open-raid-z`](https://github.com/aon-co-jp/open-raid-z)の
 `CLAUDE.md`を正本とし、各プロジェクトへコピーして同期する方針に準じる。
 GitHubリポジトリ: [aon-co-jp/open-mqa](https://github.com/aon-co-jp/open-mqa)。
@@ -60,6 +72,90 @@ GitHubリポジトリ: [aon-co-jp/open-mqa](https://github.com/aon-co-jp/open-mq
 - **GPU/NPU実装**: `dream-os`の提案通り、GPUオーディオDSP
   ([GPU Audio](https://www.gpu.audio/)のような実在する業界動向)・
   `open-cuda`(Vulkan計算基盤)との連携も将来検討する。
+
+## PCM代替のソフトウェアフォールバック構想(2026-08-08、ユーザー提案+日英Web検索での裏取り)
+
+ユーザー提案「PCMは次のハードウェアがない場合のDirectXなどの代替技術で」
+を検討・裏取りした。
+
+- **実在する裏付け**: DirectXの`WARP`(Windows Advanced Rasterization
+  Platform)は、対応GPUハードウェアが無い場合にCPU側でソフトウェア
+  ラスタライズへフォールバックする仕組み
+  ([Wikipedia](https://en.wikipedia.org/wiki/Windows_Advanced_Rasterization_Platform))。
+  音響分野にも同型のパターンが実在する: **DSD対応DACを持たない
+  ハードウェアでは、再生ソフトウェア側でDSDをPCMへダウンコンバート
+  して再生する**のが標準的な対処法
+  ([NativeDSD Help](https://help.nativedsd.com/en/articles/63529-playing-dsd-dxd-and-very-high-bit-rate-pcm-files)、
+  [Audiophile Style](https://audiophilestyle.com/forums/topic/38313-converting-dsd-to-pcm/))。
+  変換自体は1bit DSD→64bit PCM(DSDレートの1/8)への実質ロスレス変換だが、
+  折り返し歪み(スペクトラムフォールディング)を避けるためデジタル
+  フィルタ(シグマデルタ復調)が必須
+  ([samplerateconverter.com](https://samplerateconverter.com/educational/dsd-converter))。
+- **open-mqaへの設計方針**: WARPと同じ「ハードウェアが対応していれば
+  ネイティブ実行、無ければソフトウェアフォールバック」という抽象化を
+  音響パイプラインにも適用する——具体的には、DSD256/512ネイティブ
+  対応DACがあればそのまま出力し、無ければソフトウェア側でPCM
+  (24bit/192kHz等)へダウンコンバートしてから出力する経路を、
+  同じAPI面から透過的に選択できる設計とする(次回、具体的なインター
+  フェース設計に着手)。
+
+## 東芝SBM・DeepSeek技術の組み込み検討(2026-08-08、ユーザー提案+日英Web検索・GitHub調査での裏取り)
+
+ユーザー提案「東芝の疑似量子コンピュータ技術とDeepSeekのグラフィック
+ボード一万枚を一枚でPCで実現する折りたたみ技術を盛り込んで」を検討した。
+
+- **東芝SBM(Simulated Bifurcation Machine、疑似量子アニーリング)**:
+  実在する技術で、**`dream-os`側に既に実装済み**(`sbm_ising`カーネル、
+  64スピンPoC、実GPU/NPU上で動作検証済み——
+  [dream-os/CLAUDE.md](https://github.com/aon-co-jp/dream-os/blob/main/CLAUDE.md)
+  参照)。組み合わせ最適化問題(イジングモデルへ定式化できる問題)を
+  高速に解く技術であり、**音響分野での現実的な適用先候補**としては、
+  「限られたビットレート予算の中で、心理音響モデルに基づき周波数
+  帯域ごとの最適なビット配分を組み合わせ最適化問題として解く」
+  ような用途が考えられる(既存のFLAC/MP3等のロスレス/非可逆圧縮も
+  内部でビット配分の最適化を行っており、SBMで置き換え可能かは
+  次回の技術調査対象)。**再実装はせず、`dream-os`の既存実装を
+  再利用する方針**とする(このエコシステムの既存方針「他リポジトリが
+  既に持つ機能を重複実装しない」に従う)。
+- **DeepSeekの「グラフィックボード一万枚を一枚でPCで実現する折りたたみ
+  技術」について(重要な正直な開示)**: **2026-08-08時点で日英Web検索・
+  GitHub調査を行ったが、そのような技術は確認できなかった**。これは
+  今回が初めての調査ではなく、**このエコシステム内で2026-07-23時点
+  (`open-web-server`/`open-directx`側CLAUDE.md参照)に既に同じ主張を
+  調査済みで、当時も「数千枚のGPUを1枚に圧縮する技術という主張は
+  確認できず、誤解・誇張と判断」という結論に達している**——今回の
+  再調査でも同じ結論に至った(2度目の裏取りで再確認)。
+  DeepSeekが実際に発表している技術は以下の通り(いずれも「複数GPUの
+  計算能力を1枚に圧縮する」話ではなく、**メモリ効率・通信最適化・
+  アテンション機構の圧縮**が中心):
+  - **MLA(Multi-Head Latent Attention)**・**DeepSeekMoE**・
+    **FP8混合精度学習**(DeepSeek-V3、既存調査で確認済み)。
+  - **Compressed Sparse Attention / Heavily Compressed Attention**
+    (DeepSeek-V4のハイブリッドアテンション、KVキャッシュのメモリ
+    フットプリント削減、["DeepSeek: Paradigm Shifts and Technical
+    Evolution in Large AI Models"](https://arxiv.org/pdf/2507.09955))。
+  - **Engram**(長文脈クエリ向けに、静的な知識をシステムRAMへコミット
+    しHBM依存を減らすメモリアーキテクチャ、
+    [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/deepseek-touts-memory-breakthrough-engram))
+    ——**これは「GPU/HBM制約を回避するためシステムRAMを併用する」という
+    方向性であり、方向性としては「限られたハードウェアで大規模モデルを
+    動かす」というユーザーの意図に最も近い実在技術**と考えられる。
+  - **DeepSeek-OCR**(光学2次元マッピングによるコンテキスト圧縮、
+    10倍圧縮でOCR精度97%、単一A100 GPUで1日20万ページ超処理、
+    [deepseek.ai](https://deepseek.ai/blog/deepseek-ocr-context-compression))。
+  - **Warp specialization**(Streaming Multiprocessorを通信チャネルへ
+    分割する最適化、[Medium記事](https://medium.com/@amin32846/unlock-warp-level-performance-deepseeks-practical-techniques-for-specialized-gpu-tasks-a6cf0c68a178))。
+  **open-mqaへの現実的な適用方針**: 「1万枚を1枚に折りたたむ」という
+  文字通りの技術は実装対象にせず(存在しないため)、代わりに**Engram
+  的なメモリオフロード方針(GPU VRAM不足時にシステムRAMを併用する
+  設計)**を、将来GPU実装(GPU Audio的な音響DSP)に予算制約がある環境
+  向けの現実的な代替案として記録しておく。
+- **正直な結論**: DirectX・未来のOS/CPU/NPU/GPU実装レベルへの期待
+  自体は方向性として理解できるが、**現時点で存在しない技術を
+  「盛り込んだ」と主張することはこのエコシステムの正直な開示の方針に
+  反する**——実在する東芝SBM(dream-os経由で再利用)・DeepSeekの実際の
+  メモリ効率化技術(Engram的な発想)を、それぞれ妥当な適用先が見つかった
+  時点で段階的に検討する、という現実路線を維持する。
 
 **現時点ではコード未着手、構想・スコープ決定のみ**(このCLAUDE.md・
 README.md・PORTING.mdの新設が今回の唯一の成果物)。

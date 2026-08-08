@@ -1,5 +1,7 @@
 # open-mqa
 
+[English README](README-English.md)
+
 MQA(Master Quality Authenticated)互換の再実装ではなく、MQAが目指していた
 「配信帯域に収まる高解像度オーディオ体験」という目的そのものを、既存の
 オープンな規格(FLAC・DSD256/512等)を土台に独自パイプラインとして実現する
