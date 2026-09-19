@@ -2,7 +2,8 @@
 //!
 //! 現時点(2026-08-08、初回実装)で提供する機能:
 //! - [`wav`]: 自前実装のリニアPCM WAV(16/24/32bit、多チャンネルはEXTENSIBLE)読み書きと、DoPフレームの
-//!   24bit WAV入出力。FLACは廃止しWAVベースへ移行した(2026-09-19)。
+//!   24bit WAV入出力。WAVを既定とする。
+//! - [`codec`]: 出力形式の選択(**WAV既定**、FLAC/Opusは選択可能、Cargoフィーチャ`flac`/`opus`)。
 //! - [`dop`]: DSD-over-PCM (DoP) のマーカー/フレームパッキング。DSD256を
 //!   当面の目標品質としつつ、サンプルレート・ビット深度はハードコードせず
 //!   呼び出し側が設定可能な構造にしている
@@ -18,4 +19,9 @@
 
 pub mod dop;
 pub mod dsd_modulate;
+pub mod codec;
+#[cfg(feature = "flac")]
+pub mod flac;
+#[cfg(feature = "opus")]
+pub mod opus;
 pub mod wav;

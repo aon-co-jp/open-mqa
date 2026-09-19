@@ -2,10 +2,18 @@
 name = "open-mqa"
 version = "0.1.0"
 edition = "2021"
-description = "open-mqa: MQA非互換・特許リスクなしの独自ハイレゾ配信パイプライン(WAV + DSD-over-PCM)"
+description = "open-mqa: MQA非互換・特許リスクなしの独自ハイレゾ配信パイプライン(WAV既定 + FLAC/Opus選択 + DSD-over-PCM)"
 license = "MIT OR Apache-2.0"
 
+[features]
+default = ["flac", "opus"]
+flac = ["dep:claxon", "dep:flacenc"]
+opus = ["dep:opus-pure"]
+
 [dependencies]
+claxon = { version = "0.4.3", optional = true }
+flacenc = { version = "0.4", optional = true }
+opus-pure = { version = "0.2", optional = true }
 thiserror = "1.0"
 
 [dev-dependencies]

@@ -86,3 +86,13 @@ FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、1
 - **open-directx(見送り)**: 画像/動画コーデック(FFv1等)が中心で、音声パイプラインとの接点が無い。
 - **aruaru-llm(見送り)**: LLM基盤で、音声信号処理との接点が無い。
 - 実際にDSD/ハイレゾ変換を行う実装は`make-disk`(`src-tauri/src/engine/dsd.rs`)側にあり、open-mqaはWAV/DoPの受け渡し形式を担う。 / Only open-cuda is a plausible future fit (GPU-friendly FIR/oversampling), not wired now because ΔΣ is serial and open-cuda's GPU path isn't at practical speed; open-directx and aruaru-llm have no audio overlap.
+
+## 2026-09-19 出力形式: WAV既定、FLAC/Opusは選択制 / Output formats: WAV default, FLAC/Opus selectable
+
+`codec::AudioFormat`(既定=`Wav`)で形式を選ぶ。FLACとOpusはCargoフィーチャ`flac`/`opus`(既定で有効、`--no-default-features`で外せる)。
+- **WAV**: 無圧縮、16/24/32bit・多ch・任意レート(DoPも可)。
+- **FLAC**(`flacenc`/`claxon`): 可逆。**実測の制約: このエンコーダは96kHzまで**。DoP(176.4kHz以上)は載せられずWAV専用。
+- **Opus**(純Rust`opus-pure`、C/cmake不要): 非可逆。8/12/16/24/48kHz・1〜2chのみでハイレゾ/DoP用ではない(DoPは明示的に拒否)。ギャップレス(元と同じ長さ)を往復テストで確認。
+- `codec::decode`はマジックバイトでWAV/FLAC/Opusを自動判別。全26テスト+`--no-default-features`ビルド成功。
+
+WAV is the default; FLAC (≤96 kHz with flacenc, lossless) and Opus (pure-Rust, lossy, ≤48 kHz stereo) are opt-in formats. DoP is WAV-only (FLAC's encoder caps at 96 kHz; Opus would destroy it).
