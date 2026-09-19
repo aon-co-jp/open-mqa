@@ -75,3 +75,7 @@ As of 2026-08-08, `cargo test` passes all 11 tests (2 FLAC round-trip,
 - [dream-os](https://github.com/aon-co-jp/dream-os) — origin of the sound-tech proposal discussion
 - [open-cuda](https://github.com/aon-co-jp/open-cuda) — candidate for future GPU audio DSP integration
 - [open-raid-z](https://github.com/aon-co-jp/open-raid-z) — canonical source for shared dev policy
+
+## 2026-09-19 方針変更: FLAC廃止・WAVベースへ / Switched from FLAC to WAV
+
+FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、16/24/32bit・多ch対応)を基本形式にした。DoPフレームも24bit WAV(`encode_dop_wav`/`decode_dop_wav`)として保存でき、DoPマーカー込みのビット完全な往復をテストで確認済み(全17件pass)。`make-disk`(F:\make-disk)のDSD/ハイレゾ変換とWAVで受け渡せる。**正直な開示**: DoP WAVは対応DACへのビットパーフェクト再生が前提(音量・SRCを通るとノイズ)。MQA互換ではなく、MQAの再実装も行わない。 / FLAC (and its crate deps) removed in favour of a self-written WAV reader/writer; DoP frames round-trip bit-exactly through 24-bit WAV. Playable only via bit-perfect paths to DoP-capable DACs. Still not MQA-compatible.

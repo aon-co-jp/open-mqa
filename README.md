@@ -4,7 +4,7 @@
 
 MQA(Master Quality Authenticated)互換の再実装ではなく、MQAが目指していた
 「配信帯域に収まる高解像度オーディオ体験」という目的そのものを、既存の
-オープンな規格(FLAC・DSD256/512等)を土台に独自パイプラインとして実現する
+オープンな規格(WAV・DSD256/512等)を土台に独自パイプラインとして実現する
 プロジェクト。
 
 ## なぜMQA互換を目指さないか
@@ -56,3 +56,7 @@ cargo test
 - [dream-os](https://github.com/aon-co-jp/dream-os) — SOUND関連技術提案の議論の発端
 - [open-cuda](https://github.com/aon-co-jp/open-cuda) — 将来のGPU音響DSP連携候補
 - [open-raid-z](https://github.com/aon-co-jp/open-raid-z) — 開発ルールの正本
+
+## 2026-09-19 方針変更: FLAC廃止・WAVベースへ / Switched from FLAC to WAV
+
+FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、16/24/32bit・多ch対応)を基本形式にした。DoPフレームも24bit WAV(`encode_dop_wav`/`decode_dop_wav`)として保存でき、DoPマーカー込みのビット完全な往復をテストで確認済み(全17件pass)。`make-disk`(F:\make-disk)のDSD/ハイレゾ変換とWAVで受け渡せる。**正直な開示**: DoP WAVは対応DACへのビットパーフェクト再生が前提(音量・SRCを通るとノイズ)。MQA互換ではなく、MQAの再実装も行わない。 / FLAC (and its crate deps) removed in favour of a self-written WAV reader/writer; DoP frames round-trip bit-exactly through 24-bit WAV. Playable only via bit-perfect paths to DoP-capable DACs. Still not MQA-compatible.

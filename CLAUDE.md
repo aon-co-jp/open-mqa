@@ -355,3 +355,7 @@ FLACエンコードのビット配分(ブロックサイズ・予測次数選択
   (2) 「認証」相当機能(ハッシュ・署名によるマスタリング工程の証明)の
   設計、(3) 最初の1機能(例: FLACエンコード/デコードの薄いラッパー)の
   実装着手、(4) 実装が固まった段階でVPSフォルダを新設しデプロイ。
+
+## 2026-09-19 方針変更: FLAC廃止・WAVベースへ / Switched from FLAC to WAV
+
+FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、16/24/32bit・多ch対応)を基本形式にした。DoPフレームも24bit WAV(`encode_dop_wav`/`decode_dop_wav`)として保存でき、DoPマーカー込みのビット完全な往復をテストで確認済み(全17件pass)。`make-disk`(F:\make-disk)のDSD/ハイレゾ変換とWAVで受け渡せる。**正直な開示**: DoP WAVは対応DACへのビットパーフェクト再生が前提(音量・SRCを通るとノイズ)。MQA互換ではなく、MQAの再実装も行わない。 / FLAC (and its crate deps) removed in favour of a self-written WAV reader/writer; DoP frames round-trip bit-exactly through 24-bit WAV. Playable only via bit-perfect paths to DoP-capable DACs. Still not MQA-compatible.
