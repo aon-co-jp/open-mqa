@@ -79,3 +79,10 @@ As of 2026-08-08, `cargo test` passes all 11 tests (2 FLAC round-trip,
 ## 2026-09-19 方針変更: FLAC廃止・WAVベースへ / Switched from FLAC to WAV
 
 FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、16/24/32bit・多ch対応)を基本形式にした。DoPフレームも24bit WAV(`encode_dop_wav`/`decode_dop_wav`)として保存でき、DoPマーカー込みのビット完全な往復をテストで確認済み(全17件pass)。`make-disk`(F:\make-disk)のDSD/ハイレゾ変換とWAVで受け渡せる。**正直な開示**: DoP WAVは対応DACへのビットパーフェクト再生が前提(音量・SRCを通るとノイズ)。MQA互換ではなく、MQAの再実装も行わない。 / FLAC (and its crate deps) removed in favour of a self-written WAV reader/writer; DoP frames round-trip bit-exactly through 24-bit WAV. Playable only via bit-perfect paths to DoP-capable DACs. Still not MQA-compatible.
+
+## 2026-09-19 関連リポジトリ取り込み判断 / Sibling-repo integration decision
+
+- **open-cuda(採用候補・今回はコード結線せず)**: `hgemm`/`dgemm`/`sgemm`の実Vulkan実行(GT 730実機で検証済み)があり、オーバーサンプリング用FIRの行列化など**GPU向きの並列処理**には将来使える。ただしΔΣ変調は出力ビットを次サンプルの誤差へ戻す**直列フィードバック**でGPUに向かない(並列化できるのはチャンネル間・区間間のみ。`make-disk`側で区間並列化を実装予定)。open-cudaも生成系ではGPUディスパッチが実用速度に届いていないため、投機的な結線はしない方針を維持。
+- **open-directx(見送り)**: 画像/動画コーデック(FFv1等)が中心で、音声パイプラインとの接点が無い。
+- **aruaru-llm(見送り)**: LLM基盤で、音声信号処理との接点が無い。
+- 実際にDSD/ハイレゾ変換を行う実装は`make-disk`(`src-tauri/src/engine/dsd.rs`)側にあり、open-mqaはWAV/DoPの受け渡し形式を担う。 / Only open-cuda is a plausible future fit (GPU-friendly FIR/oversampling), not wired now because ΔΣ is serial and open-cuda's GPU path isn't at practical speed; open-directx and aruaru-llm have no audio overlap.
