@@ -376,3 +376,9 @@ FLAC(`claxon`/`flacenc`依存)を廃止し、自前実装のWAV(`src/wav.rs`、1
 - `codec::decode`はマジックバイトでWAV/FLAC/Opusを自動判別。全26テスト+`--no-default-features`ビルド成功。
 
 WAV is the default; FLAC (≤96 kHz with flacenc, lossless) and Opus (pure-Rust, lossy, ≤48 kHz stereo) are opt-in formats. DoP is WAV-only (FLAC's encoder caps at 96 kHz; Opus would destroy it).
+
+### 2026-09-19 訂正 / Correction (FLAC・Opusのレート)
+
+- **FLAC**: 上限96kHzは`flacenc`の検証コードの人為的な制限で、FLAC仕様(フレームヘッダ最大655,350Hz)ではなかった。`vendor/flacenc`(flacenc 0.5.1、Apache-2.0)に1行パッチ(96,000→655,350)を当てて**352.8k/384k/655.35kHz(24bit)の可逆往復を実測で確認**。制約: ①エンコーダは**24bitまで**(32bitはWAV)、②655,350Hz超(705.6k=DSD256のDoP等)はFLAC仕様上不可でWAV専用。DoPはDSD128(352.8kHz)までFLACに載る。
+- **Opus**: 規格自体が入力8〜48kHz(最大約20kHz帯域)・本実装は1〜2ch。384kHzは規格上不可能で、Opusにする場合は先に48kHzへ落とす。ハイレゾはWAV/FLACを使う。
+- FLAC limit corrected: it was flacenc's own check, patched in `vendor/flacenc` (verified 352.8/384/655.35 kHz at 24-bit). Encoder is 24-bit max; >655,350 Hz (e.g. DSD256 DoP) stays WAV-only. Opus is capped at 48 kHz by the standard itself.

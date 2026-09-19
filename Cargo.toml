@@ -1,8 +1,8 @@
-[package]
+﻿[package]
 name = "open-mqa"
 version = "0.1.0"
 edition = "2021"
-description = "open-mqa: MQA非互換・特許リスクなしの独自ハイレゾ配信パイプライン(WAV既定 + FLAC/Opus選択 + DSD-over-PCM)"
+description = "open-mqa: MQA髱樔ｺ呈鋤繝ｻ迚ｹ險ｱ繝ｪ繧ｹ繧ｯ縺ｪ縺励・迢ｬ閾ｪ繝上う繝ｬ繧ｾ驟堺ｿ｡繝代う繝励Λ繧､繝ｳ(WAV譌｢螳・+ FLAC/Opus驕ｸ謚・+ DSD-over-PCM)"
 license = "MIT OR Apache-2.0"
 
 [features]
@@ -12,8 +12,9 @@ opus = ["dep:opus-pure"]
 
 [dependencies]
 claxon = { version = "0.4.3", optional = true }
-flacenc = { version = "0.4", optional = true }
+flacenc = { path = "vendor/flacenc", optional = true }
 opus-pure = { version = "0.2", optional = true }
 thiserror = "1.0"
 
 [dev-dependencies]
+

@@ -1,11 +1,13 @@
-﻿//! 出力形式の選択。**既定はWAV**(無圧縮・最も単純で互換性が高い)。FLAC(可逆圧縮)とOpus(非可逆、
+//! 出力形式の選択。**既定はWAV**(無圧縮・最も単純で互換性が高い)。FLAC(可逆圧縮)とOpus(非可逆、
 //! 低レート配信向け)は選択制で、Cargoフィーチャ`flac`/`opus`(既定で有効)で組み込む。
 
 use crate::wav::{self, DecodedAudio};
 use thiserror::Error;
 
-/// 使用しているFLACエンコーダ(`flacenc`)が受け付ける上限サンプルレート。
-pub const FLAC_MAX_RATE_HZ: u32 = 96_000;
+/// FLACのフレームヘッダが表せる上限サンプルレート(仕様上の最大値。`vendor/flacenc`のパッチで384kHz等が通る)。
+pub const FLAC_MAX_RATE_HZ: u32 = 655_350;
+/// 使用しているFLACエンコーダ(`flacenc`)が扱えるビット深度の上限(FLAC仕様は32bitまでだがエンコーダが24bit)。
+pub const FLAC_MAX_BITS: u8 = 24;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AudioFormat {
@@ -53,7 +55,9 @@ pub fn encode(format: AudioFormat, samples_per_channel: &[Vec<i32>], sample_rate
     match format {
         AudioFormat::Wav => Ok(wav::encode_wav(samples_per_channel, sample_rate, bits_per_sample)?),
         #[cfg(feature = "flac")]
-        AudioFormat::Flac if sample_rate > FLAC_MAX_RATE_HZ => Err(CodecError::Unsupported(format!("FLAC(flacenc)は{FLAC_MAX_RATE_HZ}Hzまで。{sample_rate}HzはWAVを使ってください"))),
+        AudioFormat::Flac if bits_per_sample > FLAC_MAX_BITS => Err(CodecError::Unsupported(format!("FLACエンコーダは{FLAC_MAX_BITS}bitまで。{bits_per_sample}bitはWAVを使ってください"))),
+        #[cfg(feature = "flac")]
+        AudioFormat::Flac if sample_rate > FLAC_MAX_RATE_HZ => Err(CodecError::Unsupported(format!("FLACは{FLAC_MAX_RATE_HZ}Hzまで。{sample_rate}HzはWAVを使ってください"))),
         #[cfg(feature = "flac")]
         AudioFormat::Flac => Ok(crate::flac::encode_flac(samples_per_channel, sample_rate, bits_per_sample)?),
         #[cfg(not(feature = "flac"))]
@@ -85,7 +89,7 @@ pub fn decode(bytes: &[u8]) -> Result<DecodedAudio, CodecError> {
     Err(CodecError::Unsupported("WAV/FLAC/Opusのいずれでもありません".into()))
 }
 
-/// DoP(DSD)フレームを保存する。可逆形式のみ許可する(Opusは壊れるため拒否、FLACは上限96kHzのためDoPの176.4kHz以上は不可 → 実質WAV)。
+/// DoP(DSD)フレームを保存する。可逆形式のみ許可する(Opusは壊れるため拒否。FLACは655,350Hzまでで、DSD128(352.8kHz)まで可、DSD256以上はWAV専用)。
 pub fn encode_dop(format: AudioFormat, channels: &[Vec<crate::dop::PcmFrame24>], pcm_rate: u32) -> Result<Vec<u8>, CodecError> {
     if !format.is_lossless() {
         return Err(CodecError::Unsupported("DoPは非可逆のOpusでは壊れるため保存できません(WAVを選んでください)".into()));
@@ -123,15 +127,32 @@ mod tests {
     }
 
     #[test]
-    fn dop_is_wav_only_flac_and_opus_are_refused() {
+    fn flac_handles_high_rates_and_dop_is_lossless_but_opus_is_refused() {
+        // FLAC 192k〜705.6kHz/24bitの可逆往復(96kHz超が通ること)
+        let hi: Vec<i32> = (0..3000).map(|i| ((i as f64 * 0.02).sin() * 8_000_000.0) as i32).collect();
+        for rate in [192_000u32, 352_800, 384_000, 655_350] {
+            let f = encode(AudioFormat::Flac, &[hi.clone(), hi.clone()], rate, 24).unwrap();
+            let d = decode(&f).unwrap();
+            assert_eq!(d.sample_rate, rate);
+            assert_eq!(d.samples_per_channel[0], hi, "FLAC {rate}Hz/24bit");
+        }
+        assert!(encode(AudioFormat::Flac, &[hi.clone()], 705_600, 24).is_err(), "FLAC仕様の上限655,350Hz超は不可");
+        assert!(encode(AudioFormat::Flac, &[hi.clone()], 384_000, 32).is_err(), "FLACエンコーダは24bitまで");
+        // DoP: DSD128(352.8kHz)まではWAV・FLACともビット完全に往復する。DSD256(705.6kHz)はFLACの上限超でWAVのみ。Opusは拒否。
         let dsd: Vec<u8> = (0..4096u32).map(|i| (i.wrapping_mul(2654435761) >> 11) as u8).collect();
-        let cfg = DopConfig::dsd256_24bit();
+        let cfg = DopConfig { format: crate::dop::DsdFormat::DSD128, container_bits: 24 };
         let frames = pack_dop_frames(&dsd, &cfg).unwrap();
-        let bytes = encode_dop(AudioFormat::Wav, &[frames.clone(), frames.clone()], cfg.format.dop_pcm_sample_rate_hz()).unwrap();
-        let d = decode(&bytes).unwrap();
-        let back: Vec<[u8; 3]> = d.samples_per_channel[0].iter().map(|&s| [(s >> 16) as u8, (s >> 8) as u8, s as u8]).collect();
-        assert_eq!(unpack_dop_frames(&back).unwrap(), dsd);
-        assert!(encode_dop(AudioFormat::Flac, &[frames.clone()], 705_600).is_err(), "FLACは96kHz超を扱えない");
-        assert!(encode_dop(AudioFormat::Opus { bitrate_bps: 128_000 }, &[frames], 705_600).is_err());
+        for f in [AudioFormat::Wav, AudioFormat::Flac] {
+            let bytes = encode_dop(f, &[frames.clone(), frames.clone()], cfg.format.dop_pcm_sample_rate_hz()).unwrap();
+            let d = decode(&bytes).unwrap();
+            assert_eq!(d.sample_rate, 352_800);
+            let back: Vec<[u8; 3]> = d.samples_per_channel[0].iter().map(|&s| [(s >> 16) as u8, (s >> 8) as u8, s as u8]).collect();
+            assert_eq!(unpack_dop_frames(&back).unwrap(), dsd, "{f:?}");
+        }
+        let cfg256 = DopConfig::dsd256_24bit();
+        let f256 = pack_dop_frames(&dsd, &cfg256).unwrap();
+        assert!(encode_dop(AudioFormat::Wav, &[f256.clone()], 705_600).is_ok());
+        assert!(encode_dop(AudioFormat::Flac, &[f256], 705_600).is_err(), "DSD256のDoPはFLACに載らない");
+        assert!(encode_dop(AudioFormat::Opus { bitrate_bps: 128_000 }, &[frames], 352_800).is_err());
     }
 }
