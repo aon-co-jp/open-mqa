@@ -14,7 +14,7 @@ opus = ["dep:opus-pure"]
 claxon = { version = "0.4.3", optional = true }
 flacenc = { path = "vendor/flacenc", optional = true }
 opus-pure = { version = "0.2", optional = true }
-thiserror = "1.0"
+thiserror = "2.0"
 
 [dev-dependencies]
 
